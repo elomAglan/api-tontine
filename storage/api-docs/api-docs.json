@@ -1,0 +1,627 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Tontine API",
+        "description": "Documentation de l'API Tontine - Backend",
+        "contact": {
+            "email": "admin@tontine.com"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8000",
+            "description": "Serveur API Principal"
+        }
+    ],
+    "paths": {
+        "/api/auth/register": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Inscription d'un nouvel utilisateur",
+                "description": "INSCRIPTION",
+                "operationId": "d764dd091cc4494ae0baf360b03319f3",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "phone",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Elom"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+22890123456"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "12345678"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Utilisateur créé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "type": "object"
+                                        },
+                                        "token": {
+                                            "type": "string",
+                                            "example": "1|abcdefpqrst..."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation (ex: téléphone déjà utilisé)"
+                    }
+                }
+            }
+        },
+        "/api/auth/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Connexion utilisateur",
+                "description": "CONNEXION",
+                "operationId": "8dcb70df1020986038d098cc08d05dae",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "phone",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+22890123456"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "12345678"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Connexion réussie",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "type": "object"
+                                        },
+                                        "token": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Identifiants incorrects"
+                    }
+                }
+            }
+        },
+        "/api/auth/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Déconnexion (révoquer le token actuel)",
+                "description": "DÉCONNEXION",
+                "operationId": "69281b12abb272c76871f19cb17ca563",
+                "responses": {
+                    "200": {
+                        "description": "Déconnecté avec succès"
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/profile": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Récupérer les infos de l'utilisateur connecté",
+                "description": "PROFIL",
+                "operationId": "6d010834430854e4df1a215e5771aa96",
+                "responses": {
+                    "200": {
+                        "description": "Données du profil retournées",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/tontines/{id}/pay": {
+            "post": {
+                "tags": [
+                    "Contributions"
+                ],
+                "summary": "Enregistrer la cotisation d'un membre",
+                "description": "1. ENREGISTRER UN PAIEMENT (ADMIN SEUL)",
+                "operationId": "29e0ec79538d9880cd6f1ea58b74ba16",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_id",
+                                    "round_number"
+                                ],
+                                "properties": {
+                                    "user_id": {
+                                        "type": "integer"
+                                    },
+                                    "round_number": {
+                                        "description": "Le numéro du tour actuel",
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Paiement validé"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/tontines/{id}/status": {
+            "get": {
+                "tags": [
+                    "Contributions"
+                ],
+                "summary": "Voir qui a payé et qui reçoit le pot",
+                "description": "2. ÉTAT DES COTISATIONS ET BÉNÉFICIAIRE",
+                "operationId": "fec72f5ef7917b243f5ed82387b2b747",
+                "responses": {
+                    "200": {
+                        "description": "État récupéré"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/tontines": {
+            "get": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Lister les tontines de l'utilisateur connecté",
+                "description": "1. LISTER LES TONTINES",
+                "operationId": "7035e2749a694685b6798ae6601b3cbf",
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Créer un nouveau groupe de tontine",
+                "description": "2. CRÉER UNE TONTINE",
+                "operationId": "e8b98b51b853a61b623dba808d6d3be4",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "amount",
+                                    "frequency_days"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Tontine Famille"
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "example": 50000
+                                    },
+                                    "frequency_days": {
+                                        "type": "integer",
+                                        "example": 30
+                                    },
+                                    "late_fee": {
+                                        "type": "number",
+                                        "example": 1000
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Créée"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/tontines/{id}": {
+            "get": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Détails complets d'une tontine",
+                "description": "3. DÉTAILS D'UNE TONTINE",
+                "operationId": "462933a55acaa707b0c431db9a233cc6",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Supprimer définitivement le groupe",
+                "description": "12. SUPPRIMER TONTINE",
+                "operationId": "ace32087cfbb77f23dcf986b418e4fd8",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/tontines/{id}/add-member": {
+            "post": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Ajouter un membre par son numéro de téléphone",
+                "description": "4. AJOUTER UN MEMBRE",
+                "operationId": "0853021940f07e32420611b8554c8afe",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Ajouté"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/tontines/{id}/shuffle": {
+            "post": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Générer un ordre de passage aléatoire",
+                "description": "5. MIXAGE ALÉATOIRE",
+                "operationId": "7f42385421b14122c6ebd0d92fece5b1",
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/tontines/{id}/start": {
+            "post": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Lancer officiellement la tontine",
+                "description": "6. DÉMARRER LA TONTINE",
+                "operationId": "4759b3973897594e15ca1b99c92967a4",
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/tontines/{id}/record-payment": {
+            "post": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Valider la cotisation d'un membre",
+                "description": "7. ENREGISTRER UN PAIEMENT (ADMIN SEUL)",
+                "operationId": "4ffeff5418c9c928f7db6f3d0b42eb66",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "user_id": {
+                                        "type": "integer"
+                                    },
+                                    "round_number": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/tontines/{id}/payment-status": {
+            "get": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Voir qui a payé et qui reçoit le pot",
+                "description": "8. ÉTAT DU TOUR ACTUEL",
+                "operationId": "59fa339f573887e76b5af573671bf651",
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/tontines/{id}/debtors": {
+            "get": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Lister les membres en retard de paiement",
+                "description": "9. LISTER LES DÉBITEURS (RETARDATAIRES)",
+                "operationId": "f94f5d8e12dcfc3c2201e9883894d2fc",
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/tontines/{id}/apply-penalty": {
+            "post": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Appliquer une amende manuelle à un membre",
+                "description": "10. APPLIQUER UNE AMENDE",
+                "operationId": "3d65fce3a8d4016a843fd0abc00e40e8",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "user_id": {
+                                        "type": "integer"
+                                    },
+                                    "round_number": {
+                                        "type": "integer"
+                                    },
+                                    "amount": {
+                                        "type": "number"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/penalties/{penalty_id}/pay": {
+            "post": {
+                "tags": [
+                    "Tontines"
+                ],
+                "summary": "Marquer une amende comme payée",
+                "description": "11. PAYER UNE AMENDE",
+                "operationId": "3932ef2685c1b1aa3fb5ebdd4f6ad8cf",
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Entrez votre jeton API (Token) ici."
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Contributions",
+            "description": "Gestion des paiements et des gains"
+        },
+        {
+            "name": "Tontines",
+            "description": "Gestion complète : Groupes, Membres, Cotisations et Discipline"
+        },
+        {
+            "name": "Auth",
+            "description": "Auth"
+        }
+    ]
+}
