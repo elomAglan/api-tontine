@@ -76,48 +76,66 @@ class ContributionController extends Controller
         tags: ["Contributions"],
         responses: [new OA\Response(response: 200, description: "État récupéré")]
     )]
-    public function getStatus(int $id): JsonResponse
+    public function getStatus(Request $request, int $id): JsonResponse
     {
-        $tontine = Tontine::with(['users', 'payments'])->findOrFail($id);
-        
-        // 1. Déterminer le tour actuel (basé sur la date)
-        $currentRound = $tontine->current_turn; // Utilise la logique de date qu'on a fait avant
+        // --- LOGS DE DEBUG ---
+        $user = $request->user();
+        \Log::info("--- DEBUG STATUS TONTINE ---");
+        \Log::info("Utilisateur connecté ID : " . ($user ? $user->id : 'NON AUTHENTIFIÉ'));
+        \Log::info("Requête pour Tontine ID : " . $id);
 
-        // 2. Trouver le bénéficiaire du pot pour ce tour
-        // Celui dont le turn_order == currentRound
-        $beneficiary = $tontine->users()
-            ->wherePivot('turn_order', $currentRound)
-            ->first();
+        try {
+            $tontine = Tontine::with(['users', 'payments'])->findOrFail($id);
+            
+            // 1. Déterminer le tour actuel
+            $currentRound = $tontine->current_turn ?? 1;
+            \Log::info("Tour actuel détecté : " . $currentRound);
 
-        // 3. Calculer le montant total du pot actuel
-        $potAmount = $tontine->amount * $tontine->users()->count();
+            // 2. Trouver le bénéficiaire
+            $beneficiary = $tontine->users()
+                ->wherePivot('turn_order', $currentRound)
+                ->first();
+            
+            \Log::info("Bénéficiaire trouvé : " . ($beneficiary ? $beneficiary->name : 'AUCUN'));
 
-        // 4. Liste de tous les membres avec leur état de paiement pour ce tour
-        $membersStatus = $tontine->users->map(function($user) use ($id, $currentRound) {
-            $hasPaid = Payment::where('tontine_id', $id)
-                ->where('user_id', $user->id)
-                ->where('round_number', $currentRound)
-                ->exists();
+            // 3. Calculer le montant total
+            $potAmount = $tontine->amount * $tontine->users()->count();
 
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'has_paid' => $hasPaid,
-                'amount_to_pay' => $hasPaid ? 0 : $user->pivot->amount // Optionnel
-            ];
-        });
+            // 4. Liste de tous les membres avec état de paiement
+            $membersStatus = $tontine->users->map(function($u) use ($id, $currentRound) {
+                $hasPaid = Payment::where('tontine_id', $id)
+                    ->where('user_id', $u->id)
+                    ->where('round_number', $currentRound)
+                    ->exists();
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'current_round' => $currentRound,
-                'pot_total' => $potAmount,
-                'beneficiary' => $beneficiary ? [
-                    'name' => $beneficiary->name,
-                    'phone' => $beneficiary->phone
-                ] : null,
-                'payments_status' => $membersStatus
-            ]
-        ]);
+                return [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'has_paid' => $hasPaid,
+                ];
+            });
+
+            \Log::info("Nombre de membres traités : " . $membersStatus->count());
+            \Log::info("----------------------------");
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $tontine->id,
+                    'status' => $tontine->status,
+                    'current_round' => $currentRound,
+                    'pot_total' => $potAmount,
+                    'beneficiary' => $beneficiary ? [
+                        'name' => $beneficiary->name,
+                        'phone' => $beneficiary->phone
+                    ] : null,
+                    'members' => $membersStatus // Note: Renommé pour correspondre à ton code Flutter
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error("ERREUR DANS getStatus : " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 }
