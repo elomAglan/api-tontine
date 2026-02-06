@@ -6,6 +6,7 @@ use App\Models\Tontine;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -13,8 +14,11 @@ class DashboardController extends Controller
     {
         try {
             $user = Auth::user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Utilisateur non trouvé'], 401);
+            }
 
-            // 1. Récupérer toutes les tontines actives de l'utilisateur
+            // Récupérer les tontines actives
             $activeGroups = $user->tontines()
                 ->where('tontines.status', 'active')
                 ->withCount('users')
@@ -24,49 +28,66 @@ class DashboardController extends Controller
             $globalPaid = 0;
             $lateAlerts = 0;
 
-            // 2. Parcourir chaque groupe individuellement pour calculer les stats
-            foreach ($activeGroups as $tontine) {
-                $currentTurn = $tontine->current_turn ?? 1;
-                $membersCount = $tontine->users_count; // Grâce au withCount('users')
+            $mappedGroups = $activeGroups->map(function($tontine) use (&$globalExpected, &$globalPaid, &$lateAlerts) {
+                $currentRound = (int) ($tontine->current_turn ?? 1);
+                $usersCount = (int) ($tontine->users_count ?? 0);
+                $amount = (double) ($tontine->amount ?? 0);
 
-                // A. Montant attendu pour CE tour de CETTE tontine
-                $expectedForThisGroup = $tontine->amount * $membersCount;
-                $globalExpected += $expectedForThisGroup;
+                // Statistiques par tontine
+                $expectedForThisTontine = $amount * $usersCount;
+                
+                // Nombre de paiements pour le tour actuel
+                $paidMembersCount = Payment::where('tontine_id', $tontine->id)
+                    ->where('round_number', $currentRound)
+                    ->count();
 
-                // B. Montant déjà payé pour CE tour précis de CETTE tontine
-                $paidForThisGroup = Payment::where('tontine_id', $tontine->id)
-                    ->where('round_number', $currentTurn)
-                    ->sum('amount');
-                $globalPaid += $paidForThisGroup;
+                $paidAmountForThisTontine = $paidMembersCount * $amount;
 
-                // C. Vérifier si cette tontine est en retard (Alerte)
-                // Si la date limite du tour est dépassée et que tout n'est pas payé
-                if ($tontine->is_overdue && ($paidForThisGroup < $expectedForThisGroup)) {
-                    $lateAlerts++;
+                // Cumul global
+                $globalExpected += $expectedForThisTontine;
+                $globalPaid += $paidAmountForThisTontine;
+
+                // Logique d'alerte
+                if ($tontine->frequency_days > 0) {
+                    $deadline = Carbon::parse($tontine->updated_at)->addDays((int)$tontine->frequency_days);
+                    if ($paidAmountForThisTontine < $expectedForThisTontine && $deadline->isPast()) {
+                        $lateAlerts++;
+                    }
                 }
-            }
 
-            // 3. Calculs finaux globaux
-            $totalToCollect = $globalExpected - $globalPaid;
-            
-            $recoveryRate = $globalExpected > 0 
-                ? round(($globalPaid / $globalExpected) * 100) 
-                : 0;
+                // Bénéficiaire
+                $beneficiary = $tontine->users()
+                    ->wherePivot('turn_order', $currentRound)
+                    ->first();
 
+                return [
+                    'id' => (int) $tontine->id,
+                    'name' => (string) $tontine->name,
+                    'amount' => $amount,
+                    'status' => (string) $tontine->status,
+                    'current_turn' => $currentRound,
+                    'users_count' => $usersCount,
+                    'paid_count' => (int) $paidMembersCount,
+                    'beneficiary_name' => $beneficiary ? (string) $beneficiary->name : 'À déterminer',
+                ];
+            });
+
+            $recoveryRate = $globalExpected > 0 ? round(($globalPaid / $globalExpected) * 100) : 0;
+
+            // ON RETOURNE TOUJOURS UN TABLEAU PLAT
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'total_to_collect' => (int) $totalToCollect,
-                    'recovery_rate' => (int) $recoveryRate,
-                    'late_alerts' => (int) $lateAlerts,
-                    'active_groups' => $activeGroups->take(5) // Les 5 plus récentes pour la liste
-                ]
+                'total_to_collect' => (int) max(0, $globalExpected - $globalPaid),
+                'recovery_rate' => (int) $recoveryRate,
+                'late_alerts' => (int) $lateAlerts,
+                'active_groups_count' => (int) $activeGroups->count(),
+                'recent_groups' => $mappedGroups->take(5)->values()->all()
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false,
-                'message' => 'Erreur: ' . $e->getMessage()
+                'success' => false, 
+                'message' => 'Erreur Dashboard: ' . $e->getMessage()
             ], 500);
         }
     }
